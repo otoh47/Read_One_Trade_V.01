@@ -15,7 +15,7 @@ from PIL import Image, ImageGrab
 from datetime import datetime, timedelta
 from modules.indodax_api import get_indodax_summary, get_trade_volume, load_indodax_pairs, get_candlestick_data, fetch_all_tickers
 from modules.indicators import apply_indicators
-from modules.telegram_bot import send_telegram_message, send_telegram_photo, save_config_to_env
+from modules.telegram_bot import send_telegram_message, send_telegram_photo
 from modules.signal_engine import scan_signals
 from utils.helpers import get_top_movers
 
