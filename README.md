@@ -5,7 +5,7 @@ ONE Trade Dashboard adalah aplikasi Streamlit yang menampilkan analisis teknikal
 ## 🚀 Fitur Utama
 
 - Tampilan dashboard berbasis Streamlit
-- Integrasi API Indodax untuk candlestick dan ticker
+- Integrasi API Exchage untuk candlestick dan ticker
 - Deteksi sinyal teknikal (MACD & Volume Spike)
 - Screenshot berkala yang dikirim ke Telegram
 - Visualisasi candlestick lengkap dengan indikator (SMA & Bollinger Bands)
