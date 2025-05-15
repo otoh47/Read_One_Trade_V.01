@@ -1,0 +1,10 @@
+streamlit==1.44.1
+pandas
+plotly
+requests
+python-dotenv
+Pillow
+pyautogui
+opencv-python-headless
+numpy
+
