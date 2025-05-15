@@ -3,7 +3,6 @@ import logging
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
 def send_telegram_message(message):
