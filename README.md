@@ -1,6 +1,8 @@
 # Read_One_Trade_V.01
 
-ONE Trade Dashboard adalah aplikasi Streamlit yang menampilkan analisis teknikal dan sinyal trading real-time dari market Exchange Crypto, termasuk sinyal MACD, Volume Spike, hingga pengiriman notifikasi ke Telegram secara otomatis!
+Adalah aplikasi Crypto Signal yang menampilkan analisis teknikal dan sinyal trading real-time dari market Exchange Crypto, termasuk sinyal MACD, Volume Spike, hingga pengiriman notifikasi ke Telegram secara otomatis! 
+
+Developer: OTOH
 
 ## 🚀 Fitur Utama
 
