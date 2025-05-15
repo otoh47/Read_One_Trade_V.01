@@ -6,3 +6,4 @@ Pillow
 pyautogui
 opencv-python-headless
 numpy
+ta
