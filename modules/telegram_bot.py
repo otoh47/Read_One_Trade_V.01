@@ -1,17 +1,17 @@
 import os
 import logging
 import requests
-from dotenv import load_dotenv
+import streamlit as st
 
 logger = logging.getLogger(__name__)
 
 def send_telegram_message(message):
     """Kirim pesan ke Telegram."""
     try:
-        token = os.getenv("TELEGRAM_TOKEN")
-        chat_id = os.getenv("TELEGRAM_CHAT_ID")
+        token = st.secrets["telegram_token"]
+        chat_id = st.secrets["telegram_chat_id"]
         if not token or not chat_id:
-            logger.error("Telegram token atau chat_id belum diset di .env")
+            logger.error("Telegram token atau chat_id belum diset di secrets.toml")
             return False
 
         url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -32,10 +32,10 @@ def send_telegram_message(message):
 def send_telegram_photo(photo_path, caption="📸 Screenshot UI"):
     """Kirim foto ke Telegram."""
     try:
-        token = os.getenv("TELEGRAM_TOKEN")
-        chat_id = os.getenv("TELEGRAM_CHAT_ID")
+        token = st.secrets["telegram_token"]
+        chat_id = st.secrets["telegram_chat_id"]
         if not token or not chat_id:
-            logger.error("Telegram token atau chat_id belum diset di .env")
+            logger.error("Telegram token atau chat_id belum diset di secrets.toml")
             return False
 
         url = f"https://api.telegram.org/bot{token}/sendPhoto"
@@ -51,40 +51,12 @@ def send_telegram_photo(photo_path, caption="📸 Screenshot UI"):
         logger.error(f"❌ Gagal mengirim foto ke Telegram: {e}")
         return False
 
-def save_config_to_env(exchange, api_key, api_secret, telegram_token, telegram_chat_id):
-    """Simpan pengaturan ke file .env"""
-    try:
-        lines = [
-            f"EXCHANGE={exchange}",
-            f"API_KEY={api_key}",
-            f"API_SECRET={api_secret}",
-            f"TELEGRAM_TOKEN={telegram_token}",
-            f"TELEGRAM_CHAT_ID={telegram_chat_id}"
-        ]
-        with open(".env", "w") as f:
-            f.write("\n".join(lines))
-        load_dotenv(override=True)
-        logger.info("✅ Konfigurasi berhasil disimpan ke .env")
-        return True
-    except Exception as e:
-        logger.error(f"❌ Gagal menyimpan konfigurasi: {e}")
-        return False
-
 def get_current_config():
-    # Ambil dari st.secrets (untuk Streamlit Cloud), fallback ke os.getenv (local)
-    try:
-        return {
-            "exchange": st.secrets["exchange"],
-            "api_key": st.secrets["api_key"],
-            "api_secret": st.secrets["api_secret"],
-            "telegram_token": st.secrets["telegram_token"],
-            "telegram_chat_id": st.secrets["telegram_chat_id"]
-        }
-    except Exception:
-        return {
-            "exchange": os.getenv("EXCHANGE", ""),
-            "api_key": os.getenv("API_KEY", ""),
-            "api_secret": os.getenv("API_SECRET", ""),
-            "telegram_token": os.getenv("TELEGRAM_TOKEN", ""),
-            "telegram_chat_id": os.getenv("TELEGRAM_CHAT_ID", "")
-        }
+    """Ambil konfigurasi dari st.secrets"""
+    return {
+        "exchange": st.secrets["exchange"],
+        "api_key": st.secrets["api_key"],
+        "api_secret": st.secrets["api_secret"],
+        "telegram_token": st.secrets["telegram_token"],
+        "telegram_chat_id": st.secrets["telegram_chat_id"]
+    }
