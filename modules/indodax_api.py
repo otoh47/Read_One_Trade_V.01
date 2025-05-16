@@ -81,7 +81,7 @@ def get_candlestick_data(pair, tf='5min'):
         logger.error(f"Gagal mengambil data candlestick: {e}")
         return pd.DataFrame()
 
-# Fungsi untuk mengambil semua tickers (pair mata uang) beserta data harga, perubahan, dan volume
+# ✅ Fungsi untuk mengambil semua tickers lengkap dengan buy/sell
 def fetch_all_tickers():
     url = "https://indodax.com/api/tickers"
     try:
@@ -92,12 +92,23 @@ def fetch_all_tickers():
         tickers_data = {}
         for pair, info in data.items():
             try:
+                high = float(info.get("high", 0))
+                low = float(info.get("low", 0))
+                last = float(info.get("last", 0))
+                buy = float(info.get("buy", 0))
+                sell = float(info.get("sell", 0))
+                vol_idr = float(info.get("vol_idr", 0))
+
                 tickers_data[pair] = {
-                    "last": float(info.get("last", 0)),
-                    "change": float(info.get("change", 0)),
-                    "vol_idr": float(info.get("vol_idr", 0))
+                    "last": last,
+                    "change": ((last - low) / low * 100) if low else 0,
+                    "vol_idr": vol_idr,
+                    "buy": buy,
+                    "sell": sell
                 }
-            except (ValueError, TypeError):
+
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Gagal parsing data untuk pair {pair}: {e}")
                 continue
 
         return tickers_data
@@ -106,35 +117,17 @@ def fetch_all_tickers():
         logger.error(f"Gagal mengambil data tickers: {e}")
         return {}
 
-# Fungsi untuk mendapatkan top movers: top gainers, top losers, dan top volume
+# Fungsi untuk mendapatkan top movers
 def get_top_movers(tickers):
     try:
-        # Top Gainers: Pairs dengan perubahan harga tertinggi
         top_gainers = sorted(tickers.items(), key=lambda x: x[1]["change"], reverse=True)[:10]
-        
-        # Top Losers: Pairs dengan perubahan harga terendah
         top_losers = sorted(tickers.items(), key=lambda x: x[1]["change"])[:10]
-        
-        # Top Volume: Pairs dengan volume tertinggi dalam IDR
         top_volume = sorted(tickers.items(), key=lambda x: x[1]["vol_idr"], reverse=True)[:10]
-        
-        # Return top gainers, losers, and volume data
-        return top_gainers, top_losers, top_volume
-    
+        return (
+            pd.DataFrame(dict(top_gainers)).T,
+            pd.DataFrame(dict(top_losers)).T,
+            pd.DataFrame(dict(top_volume)).T,
+        )
     except Exception as e:
         logger.error(f"Gagal memproses data top movers: {e}")
-        return [], [], []
-
-# Fungsi untuk menampilkan hasil top movers
-def display_top_movers(top_gainers, top_losers, top_volume):
-    print("\nTop Gainers (Highest Change in Price):")
-    for idx, (pair, data) in enumerate(top_gainers, start=1):
-        print(f"{idx}. {pair} | Change: {data['change']:.2f}% | Last Price: {data['last']}")
-
-    print("\nTop Losers (Lowest Change in Price):")
-    for idx, (pair, data) in enumerate(top_losers, start=1):
-        print(f"{idx}. {pair} | Change: {data['change']:.2f}% | Last Price: {data['last']}")
-
-    print("\nTop Volume (Highest Volume in IDR):")
-    for idx, (pair, data) in enumerate(top_volume, start=1):
-        print(f"{idx}. {pair} | Volume: {data['vol_idr']} IDR | Last Price: {data['last']}")
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
