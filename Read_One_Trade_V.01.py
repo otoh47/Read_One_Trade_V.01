@@ -1,15 +1,18 @@
 # ╔════════════════════════════════════════════════════════════════════════════════╗
-# ║                                IMPORT & SETUP                                  ║
+# ║                                IMPORT & SETUP REQUIREMENTS                                  ║
 # ╚════════════════════════════════════════════════════════════════════════════════╝
+import os
+import platform
 import streamlit as st
 import pandas as pd
-import os
 import plotly.graph_objs as go
 import logging
 import time
 import threading
 import requests
 import base64
+import schedule
+import csv
 from io import BytesIO
 from PIL import Image, ImageGrab
 from datetime import datetime, timedelta
@@ -25,8 +28,10 @@ from utils.helpers import get_top_movers
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Streamlit config ================================================================================
 st.set_page_config(layout="wide")
 
+# KONFIGURASI DARI SECRETS.TOML ===================================================================
 def get_current_config():
     return {
         "exchange": st.secrets["exchange"],
@@ -43,8 +48,30 @@ api_secret = config["api_secret"]
 telegram_token = config["telegram_token"]
 telegram_chat_id = config["telegram_chat_id"]
 
+# SCREENSHOT ===========================================================================
+def send_ui_screenshot(filepath="startup_ui.png"):
+    if platform.system() in ["Windows", "Darwin"]:
+        try:
+            ss = ImageGrab.grab()
+            ss.save(filepath)
+            send_telegram_photo(filepath)
+            logger.info("✅ Screenshot UI dikirim ke Telegram.")
+        except Exception as e:
+            logger.warning(f"❌ Gagal ambil/kirim screenshot: {e}")
+    else:
+        logger.info("📸 Screenshot dinonaktifkan (platform tidak mendukung).")
+
+def send_periodic_screenshot():
+    global last_screenshot_time
+    while True:
+        now = datetime.now()
+        if screenshot_interval > 0 and ((last_screenshot_time is None) or ((now - last_screenshot_time).total_seconds() >= screenshot_interval)):
+            send_ui_screenshot("screenshot_ui.png")
+            last_screenshot_time = now
+        time.sleep(60)
+
 # ╔════════════════════════════════════════════════════════════════════════════════╗
-# ║                             KONFIGURASI & LOGO UI                              ║
+# ║                             PENGATURAN LOGO                                    ║
 # ╚════════════════════════════════════════════════════════════════════════════════╝
 logo_path = "logo.png"
 
@@ -91,11 +118,6 @@ def format_price(price, pair):
     else:
         return f"{price:,.2f}"
 
-LAST_SIGNAL = None
-SENT_SIGNALS = {}
-last_screenshot_time = None
-screenshot_interval = 3600
-
 # ╔════════════════════════════════════════════════════════════════════════════════╗
 # ║                         SIDEBAR - PAIR & PENGATURAN LAIN                       ║
 # ╚════════════════════════════════════════════════════════════════════════════════╝
@@ -103,6 +125,7 @@ pairs = load_indodax_pairs()
 if not pairs:
     st.error("Gagal mengambil daftar pair dari Indodax API")
     st.stop()
+    
 pair = st.sidebar.selectbox("Pilih Pair", pairs)
 
 with st.sidebar.expander("⚙️ Pengaturan API & Telegram", expanded=False):
@@ -131,23 +154,29 @@ with st.sidebar.expander("⏱️ Pengaturan Sinyal", expanded=False):
             key="screenshot_interval_label_select"
         )
         screenshot_interval = screenshot_interval_map[screenshot_interval_label]
-
+        
 # ╔════════════════════════════════════════════════════════════════════════════════╗
 # ║                          FUNGSI & THREAD SCREENSHOT                            ║
 # ╚════════════════════════════════════════════════════════════════════════════════╝
+def send_ui_screenshot(filepath="startup_ui.png"):
+    if platform.system() in ["Windows", "Darwin"]:
+        try:
+            ss = ImageGrab.grab()
+            ss.save(filepath)
+            send_telegram_photo(filepath)
+            logger.info("✅ Screenshot UI dikirim ke Telegram.")
+        except Exception as e:
+            logger.warning(f"❌ Gagal ambil/kirim screenshot: {e}")
+    else:
+        logger.info("📸 Screenshot dinonaktifkan (platform tidak mendukung).")
+
 def send_periodic_screenshot():
     global last_screenshot_time
     while True:
         now = datetime.now()
         if screenshot_interval > 0 and ((last_screenshot_time is None) or ((now - last_screenshot_time).total_seconds() >= screenshot_interval)):
-            try:
-                screenshot_path = "screenshot_ui.png"
-                image = ImageGrab.grab()
-                image.save(screenshot_path)
-                send_telegram_photo(screenshot_path)
-                last_screenshot_time = now
-            except Exception as e:
-                logger.error(f"Gagal kirim screenshot: {e}")
+            send_ui_screenshot("screenshot_ui.png")
+            last_screenshot_time = now
         time.sleep(60)
 
 # Jalankan thread screenshot
@@ -156,33 +185,9 @@ threading.Thread(target=send_periodic_screenshot, daemon=True).start()
 # Notifikasi awal saat startup
 if "startup_notified" not in st.session_state:
     if telegram_token and telegram_chat_id:
-        send_telegram_message("✅ Aplikasi aktif dan UI aktif Lur!")
-        try:
-            ss = ImageGrab.grab()
-            ss.save("startup_ui.png")
-            send_telegram_photo("startup_ui.png")
-        except Exception as e:
-            logger.warning(f"Gagal kirim screenshot awal: {e}")
+        send_telegram_message("✅ Sistem Selalu Aktif Lur!")
+        send_ui_screenshot("startup_ui.png")
         st.session_state.startup_notified = True
-
-# ╔════════════════════════════════════════════════════════════════════════════════╗
-# ║Jalankan thread screenshot berkala                                              ║ 
-# ╚════════════════════════════════════════════════════════════════════════════════╝
-threading.Thread(target=send_periodic_screenshot, daemon=True).start()
-
-# ==================================================================================
-# Kirim notifikasi awal saat app start
-# ==================================================================================
-if "startup_notified" not in st.session_state:
-    if telegram_token and chat_id:
-        send_telegram_message("✅ Aplikasi aktif dan UI aktif Lur!")
-    try:
-        ss = ImageGrab.grab()
-        ss.save("startup_ui.png")
-        send_telegram_photo("startup_ui.png")
-    except Exception as e:
-        logger.warning(f"Gagal kirim screenshot awal: {e}")
-    st.session_state.startup_notified = True
 
 try:
     with st.spinner('Memperbarui data...'):
@@ -202,9 +207,87 @@ except Exception as e:
     st.error(f"Terjadi error: {str(e)}")
     st.stop()
 
-# ==================================================================================
-# Tampilkan informasi pair
-# ==================================================================================
+# ╔════════════════════════════════════════════════════════════════════════════════╗
+# ║                         FUNGSI PLOT TEKNIKAL & SCANNER                         ║
+# ╚════════════════════════════════════════════════════════════════════════════════╝
+def plot_technical_charts(df, pair):
+    """Fungsi untuk membuat plot teknikal"""
+    fig = go.Figure()
+    
+    # Tambahkan candlestick
+    fig.add_trace(go.Candlestick(
+        x=df.index,
+        open=df['open'],
+        high=df['high'],
+        low=df['low'],
+        close=df['close'],
+        name='Candlestick'
+    ))
+    
+    # Tambahkan indikator-indikator
+    if 'sma' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df['sma'],
+            name='SMA',
+            line=dict(color='orange')
+        ))
+    
+    if 'rsi' in df.columns:
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df['rsi'],
+            name='RSI',
+            yaxis='y2',
+            line=dict(color='purple')
+        ))
+    
+    fig.update_layout(
+        title=f'Analisis Teknikal {pair}',
+        yaxis_title='Harga',
+        yaxis2=dict(title='RSI', overlaying='y', side='right'),
+        xaxis_rangeslider_visible=False
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+def scan_all_pairs(pairs):
+    alerted_pairs = []
+    for p in pairs:
+        try:
+            df = get_candlestick_data(p, interval='1h', limit=100)
+            if df is not None and not df.empty:
+                df = apply_indicators(df)
+                latest = df.iloc[-1]
+                alerts = []
+                if latest['rsi'] > 70:
+                    alerts.append(f"📊 RSI Overbought on {p.upper()}")
+                elif latest['rsi'] < 30:
+                    alerts.append(f"📉 RSI Oversold on {p.upper()}")
+                if latest['macd'] > latest['macd_signal'] and latest['macd_hist'] > 0:
+                    alerts.append(f"✅ MACD Bullish Crossover on {p.upper()}")
+                elif latest['macd'] < latest['macd_signal'] and latest['macd_hist'] < 0:
+                    alerts.append(f"⚠️ MACD Bearish Crossover on {p.upper()}")
+                if alerts:
+                    send_telegram_message("\n".join(alerts))
+                    alerted_pairs.append(p)
+        except Exception as e:
+            logger.warning(f"Error scanning pair {p}: {e}")
+    return alerted_pairs
+
+def auto_scan_job():
+    hasil = scan_all_pairs(pairs)
+    if hasil:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open("auto_scan_log.csv", "a", newline='') as f:
+            writer = csv.writer(f)
+            for pair in hasil:
+                writer.writerow([timestamp, pair, "Sinyal Terdeteksi"])
+        logger.info(f"Sinyal auto-scan terdeteksi di: {', '.join(hasil)}")
+    else:
+        logger.info("Auto-scan selesai: tidak ada sinyal.")
+
+# 1. INFORMASI PAIR =========================================================================================
 try:
     summary = get_indodax_summary(pair)
     if summary:
@@ -225,9 +308,109 @@ except Exception as e:
     st.error(f"Gagal mengambil data summary: {e}")
     logger.error(f"Error fetching summary: {e}", exc_info=True)
 
-# ==================================================================================
-# Tampilkan sinyal dalam expander
-# ==================================================================================
+# 2. CANDLESTICK CHART ======================================================================
+with st.expander("📈 Candlestick Chart", expanded=True):
+    # Dropdown untuk memilih ukuran chart
+    chart_size = st.selectbox("Pilih Ukuran Chart", ["Small", "Medium", "Large"], index=1)
+
+    # Menentukan ukuran berdasarkan pilihan dropdown
+    if chart_size == "Small":
+        chart_height = 250
+    elif chart_size == "Medium":
+        chart_height = 350
+    else:
+        chart_height = 450
+
+    # Membuat chart
+    if not candle_df.empty:
+        fig = go.Figure(data=[go.Candlestick(
+            x=candle_df['timestamp'] if 'timestamp' in candle_df else candle_df.index,
+            open=candle_df['open'],
+            high=candle_df['high'],
+            low=candle_df['low'],
+            close=candle_df['close'],
+            increasing_line_color='green',
+            decreasing_line_color='red',
+            name='Candlestick'
+        )])
+
+        # Menambahkan volume di bawah chart
+        fig.add_trace(go.Bar(
+            x=candle_df['timestamp'] if 'timestamp' in candle_df else candle_df.index,
+            y=candle_df['volume'],
+            name='Volume',
+            marker=dict(color='rgba(0,0,255,0.3)')
+        ))
+
+        # Menambahkan indikator (contoh Moving Average)
+        fig.add_trace(go.Scatter(
+            x=candle_df['timestamp'] if 'timestamp' in candle_df else candle_df.index,
+            y=candle_df['close'].rolling(window=50).mean(),
+            mode='lines',
+            name='50-period SMA',
+            line=dict(color='orange')
+        ))
+
+        # Menambahkan indikator Bollinger Bands
+        fig.add_trace(go.Scatter(
+            x=candle_df['timestamp'] if 'timestamp' in candle_df else candle_df.index,
+            y=candle_df['bb_upper'],
+            mode='lines',
+            name='BB Upper',
+            line=dict(color='rgba(173,216,230,0.5)', dash='dot')
+        ))
+
+        fig.add_trace(go.Scatter(
+            x=candle_df['timestamp'] if 'timestamp' in candle_df else candle_df.index,
+            y=candle_df['bb_lower'],
+            mode='lines',
+            name='BB Lower',
+            line=dict(color='rgba(173,216,230,0.5)', dash='dot')
+        ))
+
+        # Desain dan Layout Chart
+        fig.update_layout(
+            title=f"Candlestick: {pair.upper()} ({signal_interval})",
+            xaxis_rangeslider_visible=False,
+            template="plotly_dark",
+            height=chart_height,
+            xaxis_title="Waktu",
+            yaxis_title="Harga",
+            showlegend=True,
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+# 3. VISUALISASI TEKNIKAL & SCANNER===============================================================
+st.header("📉 Visualisasi Teknikal & Scanner")
+selected_pair = st.selectbox("Pilih Pair untuk Analisis Teknikal", pairs, index=0)
+df_chart = get_candlestick_data(selected_pair, tf='1h')
+if df_chart is not None and not df_chart.empty:
+    df_chart = apply_indicators(df_chart)
+    plot_technical_charts(df_chart, selected_pair)
+    
+# 4. SCAN SEMUA PAIR UNTUK SINYAL TEKNIKAL =======================================================
+if st.button("🔍 Scan Semua Pair untuk Sinyal Teknikal"):
+    st.info("Sedang memindai semua pair, mohon tunggu...")
+    hasil_alert = scan_all_pairs(pairs)
+    if hasil_alert:
+        st.success(f"🚨 Sinyal terdeteksi pada: {', '.join(hasil_alert)}")
+    else:
+        st.warning("Tidak ada sinyal teknikal terdeteksi.")
+
+# Auto-scan setiap jam dan log ke CSV
+if "auto_scan_started" not in st.session_state:
+    schedule.every().hour.at(":00").do(auto_scan_job)
+    def run_auto_scan():
+        while True:
+            schedule.run_pending()
+            time.sleep(30)
+    threading.Thread(target=run_auto_scan, daemon=True).start()
+    st.session_state.auto_scan_started = True
+    
+# 5. SINYAL MACD & VOLUME SPIKE ====================================================================
 with st.expander("📈 Sinyal MACD & Volume Spike", expanded=True):
     if not signals.empty:
         st.dataframe(signals.tail(5))
@@ -248,103 +431,70 @@ with st.expander("📈 Sinyal MACD & Volume Spike", expanded=True):
                     f.write(f"{datetime.now()} - {pair} - {msg}\n")
     else:
         st.write("Tidak ada sinyal terdeteksi.")
-        
-# ==================================================================================
-# Tampilkan sinyal Golabal Ticker Pair dalam expander
-# ==================================================================================
-# ======== Fungsi Format Harga (Hilangkan "Rp" jika bukan IDR) ========
-def format_price(price_value, pair_name):
-    normalized_pair = str(pair_name).upper().replace("/", "").replace("_", "")
-    is_idr = "IDR" in normalized_pair
 
-    if is_idr:
-        if price_value >= 1:
-            return f"Rp {price_value:,.0f}"
-        else:
-            return f"Rp {price_value:,.8f}"
-    else:
-        if abs(price_value) < 0.00001:
-            return f"{price_value:,.8f}"
-        elif abs(price_value) < 1:
-            return f"{price_value:,.6f}"
-        elif abs(price_value) >= 1000:
-            return f"{price_value:,.2f}"
-        else:
-            return f"{price_value:,.2f}"
+# 6. PENGATURAN WARNA DETEKSI GLOBAL: BUY/SELL DOMINAN & LONJAKAN HARGA ============================================
+SENT_SIGNALS = {}
 
-# ======== Ambil data market dari Indodax (Real-time) ========
-@st.cache_data(ttl=30)
-def fetch_all_tickers():
-    url = "https://indodax.com/api/tickers"
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        data = response.json().get('tickers', {})
-        result = {}
-        for pair, item in data.items():
-            result[pair.upper()] = {
-                'last': float(item.get('last', 0)),
-                'buy': float(item.get('buy', 0)),
-                'sell': float(item.get('sell', 0)),
-            }
-        return result
-    except Exception as e:
-        st.error(f"❌ Gagal mengambil data dari Indodax: {e}")
-        return {}
-
-# ======== Sinyal Berdasarkan Rasio Volume ========
 def generate_signal(buy, sell):
-    if sell == 0:
+    if buy > sell * 1.2:
         return "STRONG BUY"
-    diff_percent = abs(buy - sell) / max(buy, sell) * 100
-    if buy > sell:
-        if diff_percent > 5:
-            return "STRONG BUY"
-        elif diff_percent > 3:
-            return "BUY"
-    elif sell > buy:
-        if diff_percent > 5:
-            return "STRONG SELL"
-        elif diff_percent > 3:
-            return "SELL"
-    return "HOLD"
-
-# ======== Warna untuk Sinyal ========
-def color_signal(val):
-    if "STRONG BUY" in val:
-        return "color: green; font-weight: bold"
-    elif "BUY" in val:
-        return "color: lightgreen"
-    elif "STRONG SELL" in val:
-        return "color: red; font-weight: bold"
-    elif "SELL" in val:
-        return "color: orange"
+    elif buy > sell:
+        return "BUY"
+    elif buy == sell:
+        return "HOLD"
+    elif sell > buy * 1.2:
+        return "STRONG SELL"
     else:
-        return "color: blue"
+        return "SELL"
 
-# ======== Logika Open Posisi Berdasarkan Sinyal ========
 def open_position_logic(signal):
-    if signal == 'STRONG BUY':
-        return 'Open Posisi BUY 🟢'
-    elif signal == 'BUY':
-        return 'Pertimbangkan BUY 🟩'
-    elif signal == 'STRONG SELL':
-        return 'Open Posisi SELL 🔴'
-    elif signal == 'SELL':
-        return 'Pertimbangkan SELL 🟥'
+    if signal in ["STRONG BUY", "BUY"]:
+        return "Buka LONG"
+    elif signal in ["STRONG SELL", "SELL"]:
+        return "Buka SHORT"
     else:
-        return 'Tidak ada aksi ⚪'
-
-# ======== UI Streamlit ========
+        return "-"
+        
+def color_signal(val):
+    if val == "STRONG BUY":
+        return "background-color: green; color: white"
+    elif val == "BUY":
+        return "background-color: lightgreen"
+    elif val == "HOLD":
+        return "background-color: gray; color: white"
+    elif val == "SELL":
+        return "background-color: orange"
+    elif val == "STRONG SELL":
+        return "background-color: red; color: white"
+    else:
+        return ""
+# TABEL DETEKSI GLOBAL: BUY/SELL DOMINAN & LONJAKAN HARGA ============================================
 with st.expander("📡 Deteksi Global: Buy/Sell Dominan & Lonjakan Harga", expanded=True):
+    all_tickers = fetch_all_tickers()
+
     all_tickers = fetch_all_tickers()
 
     if all_tickers:
         df = pd.DataFrame.from_dict(all_tickers, orient='index')
         df.index.name = 'Pair'
-        df = df[['last', 'buy', 'sell']].copy()
 
-        # Hitung volume dan sinyal
+        # ✅ VALIDASI sebelum akses kolom + tambahkan jika hilang
+        required_cols = ['last', 'buy', 'sell']
+        for col in required_cols:
+            if col not in df.columns:
+                logger.warning(f"⚠️ Kolom '{col}' tidak ditemukan di data ticker. Ditambahkan dengan nilai default 0.")
+                df[col] = 0
+
+        # ✅ Final check sebelum lanjut
+        missing_final = [col for col in required_cols if col not in df.columns]
+        if missing_final:
+            st.error(f"❌ Masih ada kolom hilang setelah fallback: {', '.join(missing_final)}")
+            st.stop()
+
+        # Aman bro! Gas akses kolom
+        df = df[required_cols].copy()
+
+        # ⏩ lanjutkan logika kamu di sini...
         df['Volume Buy'] = df['buy']
         df['Volume Sell'] = df['sell']
         df['Rasio'] = df.apply(lambda x: "Demand" if x['buy'] > x['sell'] else "Supply", axis=1)
@@ -352,27 +502,20 @@ with st.expander("📡 Deteksi Global: Buy/Sell Dominan & Lonjakan Harga", expan
         df['Open Posisi'] = df['Sinyal'].apply(open_position_logic)
         df['Harga'] = [format_price(x, pair) for x, pair in zip(df['last'], df.index)]
 
-        # Urutkan berdasarkan kekuatan sinyal
         df['Sinyal_Val'] = df['Sinyal'].map({
             'STRONG BUY': 4, 'BUY': 3, 'HOLD': 2, 'SELL': 1, 'STRONG SELL': 0
         })
         df = df.sort_values(by='Sinyal_Val', ascending=False)
 
-        # Tampilkan kolom utama
         styled_df = df[['Harga', 'Volume Buy', 'Volume Sell', 'Rasio', 'Sinyal', 'Open Posisi']].style\
-            .format({
-                'Volume Buy': '{:,.0f}',
-                'Volume Sell': '{:,.0f}',
-            })\
+            .format({'Volume Buy': '{:,.0f}', 'Volume Sell': '{:,.0f}'})\
             .applymap(color_signal, subset=['Sinyal'])
 
         st.dataframe(styled_df, use_container_width=True)
     else:
-        st.warning("❗ Tidak ada data ticker tersedia dari Indodax.")      
-        
-# ==================================================================================
-# Top Movers dalam expander
-# ==================================================================================
+        st.warning("❗ Tidak ada data ticker tersedia dari Indodax.")
+            
+# 7. TOP MOVERS ==============================================================================================
 with st.expander("🔥 Top Movers", expanded=True):
     col1, col2, col3 = st.columns(3)
     
@@ -404,81 +547,4 @@ with st.expander("🔥 Top Movers", expanded=True):
             st.dataframe(top_volume[['vol_idr']].style.format({
                 'vol_idr': '{:,.0f} IDR'
             }))
-
-# ==================================================================================
-# Candlestick chart dalam expander
-# ==================================================================================
-with st.expander("📈 Candlestick Chart", expanded=True):
-    # Dropdown untuk memilih ukuran chart
-    chart_size = st.selectbox("Pilih Ukuran Chart", ["Small", "Medium", "Large"], index=1)
-
-    # Menentukan ukuran berdasarkan pilihan dropdown
-    if chart_size == "Small":
-        chart_height = 250
-    elif chart_size == "Medium":
-        chart_height = 350
-    else:
-        chart_height = 450
-
-    # Membuat chart
-    if not candle_df.empty:
-        fig = go.Figure(data=[go.Candlestick(
-            x=candle_df['timestamp'] if 'timestamp' in candle_df else candle_df.index,
-            open=candle_df['open'],
-            high=candle_df['high'],
-            low=candle_df['low'],
-            close=candle_df['close'],
-            increasing_line_color='green',  # warna naik
-            decreasing_line_color='red',  # warna turun
-            name='Candlestick'
-        )])
-
-        # Menambahkan volume di bawah chart
-        fig.add_trace(go.Bar(
-            x=candle_df['timestamp'] if 'timestamp' in candle_df else candle_df.index,
-            y=candle_df['volume'],
-            name='Volume',
-            marker=dict(color='rgba(0,0,255,0.3)')
-        ))
-
-        # Menambahkan indikator (contoh Moving Average)
-        fig.add_trace(go.Scatter(
-            x=candle_df['timestamp'] if 'timestamp' in candle_df else candle_df.index,
-            y=candle_df['close'].rolling(window=50).mean(),  # Contoh 50-period Moving Average
-            mode='lines',
-            name='50-period SMA',
-            line=dict(color='orange')
-        ))
-
-        # Menambahkan indikator Bollinger Bands
-        fig.add_trace(go.Scatter(
-            x=candle_df['timestamp'] if 'timestamp' in candle_df else candle_df.index,
-            y=candle_df['bb_upper'],  # Upper Bollinger Band
-            mode='lines',
-            name='BB Upper',
-            line=dict(color='rgba(173,216,230,0.5)', dash='dot')
-        ))
-
-        fig.add_trace(go.Scatter(
-            x=candle_df['timestamp'] if 'timestamp' in candle_df else candle_df.index,
-            y=candle_df['bb_lower'],  # Lower Bollinger Band
-            mode='lines',
-            name='BB Lower',
-            line=dict(color='rgba(173,216,230,0.5)', dash='dot')
-        ))
-
-        # Desain dan Layout Chart
-        fig.update_layout(
-            title=f"Candlestick: {pair.upper()} ({signal_interval})",
-            xaxis_rangeslider_visible=False,  # Menyembunyikan range slider
-            template="plotly_dark",  # Menambahkan tema gelap untuk tampilan lebih mirip TradingView
-            height=chart_height,  # Mengatur tinggi chart
-            xaxis_title="Waktu",  # Label untuk axis X
-            yaxis_title="Harga",  # Label untuk axis Y
-            showlegend=True,  # Menampilkan legend
-            plot_bgcolor='rgba(0,0,0,0)',  # Background transparan
-            paper_bgcolor='rgba(0,0,0,0)',  # Background transparent di luar chart
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
+# PALING BAWAH PAGE ============================================================================================
