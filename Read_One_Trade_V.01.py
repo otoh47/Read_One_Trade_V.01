@@ -138,9 +138,15 @@ with st.sidebar.expander("⚙️ Pengaturan API & Telegram", expanded=False):
 with st.sidebar.expander("⏱️ Pengaturan Sinyal", expanded=False):
     signal_interval = st.selectbox("Interval Sinyal", ["5min", "30min", "1H", "4H", "1D"], index=2)
 
-    if st.button("🔄 Reset Sinyal ke Default"):
-        SENT_SIGNALS.clear()
-        st.success("✅ Semua sinyal berhasil di-reset.")
+def reset_signals():
+    keys_to_clear = ["SENT_SIGNALS", "startup_notified"]
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
+    st.success("✅ Semua sinyal berhasil di-reset.")
+
+if st.button("🔄 Reset Sinyal ke Default"):
+    reset_signals()
 
     with st.sidebar.expander("🖼️ Pengaturan Screenshot", expanded=False):
         screenshot_interval_map = {
