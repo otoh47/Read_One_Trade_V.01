@@ -7,3 +7,4 @@ pyautogui
 opencv-python-headless
 numpy
 ta
+schedule
