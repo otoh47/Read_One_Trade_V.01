@@ -449,10 +449,11 @@ with st.expander("📈 Sinyal MACD & Volume Spike", expanded=True):
         last_signal = signals.iloc[-1]
         current_signal = last_signal['macd_signal_label'] or last_signal['volume_spike_label']
 
-        # Pastikan kunci SENT_SIGNALS aman digunakan
+        # Inisialisasi dan ambil SENT_SIGNALS
         if "SENT_SIGNALS" not in st.session_state:
-            st.session_state["SENT_SIGNALS"] = []
-            sent_signals = st.session_state["SENT_SIGNALS"]
+            st.session_state["SENT_SIGNALS"] = {}
+
+        sent_signals = st.session_state["SENT_SIGNALS"]
 
         if current_signal and sent_signals.get(pair, {}).get('signal') != current_signal:
             msg = f"📢 Sinyal Detected pada {pair.upper()} ({signal_interval})\n"
@@ -463,6 +464,7 @@ with st.expander("📈 Sinyal MACD & Volume Spike", expanded=True):
             if send_telegram_message(msg):
                 st.success("Sinyal terkirim ke Telegram! 🚀")
                 sent_signals[pair] = {'signal': current_signal, 'time': datetime.now()}
+                st.session_state["SENT_SIGNALS"] = sent_signals  # simpan kembali
                 with open("signal_logs.txt", "a") as f:
                     f.write(f"{datetime.now()} - {pair} - {msg}\n")
     else:
