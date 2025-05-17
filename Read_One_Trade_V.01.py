@@ -518,7 +518,7 @@ with st.expander("📉 Visualisasi Teknikal & Scanner Pair Lain", expanded=False
             else:
                 st.warning(f"Tidak dapat memuat data chart untuk {scanner_pair.upper()}.")
 
-# === DETEKSI PASAR GLOBAL (Indodax) ===
+# === DETEKSI PASAR GLOBAL ===
 with st.expander("📡 Deteksi Pasar Global", expanded=True):
     with st.spinner("Memuat data ticker semua pair..."):
         all_tickers_data = fetch_all_tickers()
