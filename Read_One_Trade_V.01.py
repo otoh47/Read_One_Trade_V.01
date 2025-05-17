@@ -146,13 +146,14 @@ def format_price(price, pair):
 # ╔════════════════════════════════════════════════════════════════════════════════╗
 # ║                         SIDEBAR - PAIR & PENGATURAN LAIN                       ║
 # ╚════════════════════════════════════════════════════════════════════════════════╝
-pairs = load_indodax_pairs()
+pairs = load_indodax_pairs() 
 if not pairs:
     st.error("Gagal mengambil daftar pair dari Indodax API")
     st.stop()
-    
-pair = st.sidebar.selectbox("Pilih Pair", pairs)
 
+pair = st.sidebar.selectbox("🎯 Pilih Pair", pairs)
+
+# ⚙️ Pengaturan API & Telegram
 with st.sidebar.expander("⚙️ Pengaturan API & Telegram", expanded=False):
     st.text_input("Exchange", value="(tersimpan)", type="password")
     st.text_input("API Key", value="(tersimpan)", type="password")
@@ -160,31 +161,35 @@ with st.sidebar.expander("⚙️ Pengaturan API & Telegram", expanded=False):
     st.text_input("Telegram Token", value="(tersimpan)", type="password")
     st.text_input("Telegram Chat ID", value="(tersimpan)", type="password")
 
+# ⏱️ Pengaturan Sinyal + Reset
 with st.sidebar.expander("⏱️ Pengaturan Sinyal", expanded=False):
     signal_interval = st.selectbox("Interval Sinyal", ["5min", "30min", "1H", "4H", "1D"], index=2)
 
-def reset_signals():
-    keys_to_clear = ["SENT_SIGNALS", "startup_notified"]
-    for key in keys_to_clear:
-        if key in st.session_state:
-            del st.session_state[key]
-    st.success("✅ Semua sinyal berhasil di-reset.")
+    # Fungsi reset
+    def reset_signals():
+        keys_to_clear = ["SENT_SIGNALS", "startup_notified"]
+        for key in keys_to_clear:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.success("✅ Semua sinyal berhasil di-reset.")
 
-if st.button("🔄 Reset Sinyal ke Default"):
-    reset_signals()
+    # Tombol reset di dalam sidebar
+    if st.button("🔄 Reset Sinyal ke Default", key="reset_signals_button"):
+        reset_signals()
 
-    with st.sidebar.expander("🖼️ Pengaturan Screenshot", expanded=False):
-        screenshot_interval_map = {
-            "15 Menit": 900, "30 Menit": 1800, "1 Jam": 3600,
-            "2 Jam": 7200, "4 Jam": 14400, "Nonaktif": 0
-        }
-        screenshot_interval_label = st.selectbox(
-            "Interval Screenshot ke Telegram",
-            options=list(screenshot_interval_map.keys()),
-            index=2,
-            key="screenshot_interval_label_select"
-        )
-        screenshot_interval = screenshot_interval_map[screenshot_interval_label]
+# 🖼️ Pengaturan Screenshot
+with st.sidebar.expander("🖼️ Pengaturan Screenshot", expanded=False):
+    screenshot_interval_map = {
+        "15 Menit": 900, "30 Menit": 1800, "1 Jam": 3600,
+        "2 Jam": 7200, "4 Jam": 14400, "Nonaktif": 0
+    }
+    screenshot_interval_label = st.selectbox(
+        "Interval Screenshot ke Telegram",
+        options=list(screenshot_interval_map.keys()),
+        index=2,
+        key="screenshot_interval_label_select"
+    )
+    screenshot_interval = screenshot_interval_map[screenshot_interval_label]
         
 # ╔════════════════════════════════════════════════════════════════════════════════╗
 # ║                          FUNGSI & THREAD SCREENSHOT                            ║
@@ -449,13 +454,16 @@ with st.expander("📈 Sinyal MACD & Volume Spike", expanded=True):
         last_signal = signals.iloc[-1]
         current_signal = last_signal['macd_signal_label'] or last_signal['volume_spike_label']
 
-        # Inisialisasi dan ambil SENT_SIGNALS
+        # Inisialisasi sebagai LIST
         if "SENT_SIGNALS" not in st.session_state:
-            st.session_state["SENT_SIGNALS"] = {}
+            st.session_state["SENT_SIGNALS"] = []
 
         sent_signals = st.session_state["SENT_SIGNALS"]
 
-        if current_signal and sent_signals.get(pair, {}).get('signal') != current_signal:
+        # Cek apakah sinyal sudah dikirim sebelumnya untuk pair yang sama
+        already_sent = any(s['pair'] == pair and s['signal'] == current_signal for s in sent_signals)
+
+        if current_signal and not already_sent:
             msg = f"📢 Sinyal Detected pada {pair.upper()} ({signal_interval})\n"
             msg += f"- MACD: {last_signal['macd_signal_label']}\n" if last_signal['macd_signal_label'] else ""
             msg += f"- Volume Spike: {last_signal['volume_spike_label']}\n" if last_signal['volume_spike_label'] else ""
@@ -463,8 +471,12 @@ with st.expander("📈 Sinyal MACD & Volume Spike", expanded=True):
 
             if send_telegram_message(msg):
                 st.success("Sinyal terkirim ke Telegram! 🚀")
-                sent_signals[pair] = {'signal': current_signal, 'time': datetime.now()}
-                st.session_state["SENT_SIGNALS"] = sent_signals  # simpan kembali
+                sent_signals.append({
+                    'pair': pair,
+                    'signal': current_signal,
+                    'time': datetime.now()
+                })
+                st.session_state["SENT_SIGNALS"] = sent_signals  # simpan ulang
                 with open("signal_logs.txt", "a") as f:
                     f.write(f"{datetime.now()} - {pair} - {msg}\n")
     else:
