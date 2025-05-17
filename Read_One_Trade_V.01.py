@@ -12,6 +12,7 @@ import threading
 import requests
 import base64
 import schedule
+import pyautogui
 import csv
 from io import BytesIO
 from PIL import Image, ImageGrab
