@@ -1,5 +1,5 @@
 # ╔════════════════════════════════════════════════════════════════════════════════╗
-# ║                                IMPORT & SETUP REQUIREMENTS                                  ║
+# ║                                IMPORT & SETUP REQUIREMENTS                     ║
 # ╚════════════════════════════════════════════════════════════════════════════════╝
 import os
 import platform
@@ -61,28 +61,6 @@ api_secret = config["api_secret"]
 telegram_token = config["telegram_token"]
 telegram_chat_id = config["telegram_chat_id"]
 
-# SCREENSHOT ===========================================================================
-def send_ui_screenshot(filepath="startup_ui.png"):
-    if platform.system() in ["Windows", "Darwin"]:
-        try:
-            ss = ImageGrab.grab()
-            ss.save(filepath)
-            send_telegram_photo(filepath)
-            logger.info("✅ Screenshot UI dikirim ke Telegram.")
-        except Exception as e:
-            logger.warning(f"❌ Gagal ambil/kirim screenshot: {e}")
-    else:
-        logger.info("📸 Screenshot dinonaktifkan (platform tidak mendukung).")
-
-def send_periodic_screenshot():
-    global last_screenshot_time
-    while True:
-        now = datetime.now()
-        if screenshot_interval > 0 and ((last_screenshot_time is None) or ((now - last_screenshot_time).total_seconds() >= screenshot_interval)):
-            send_ui_screenshot("screenshot_ui.png")
-            last_screenshot_time = now
-        time.sleep(60)
-
 # ╔════════════════════════════════════════════════════════════════════════════════╗
 # ║                             PENGATURAN LOGO                                    ║
 # ╚════════════════════════════════════════════════════════════════════════════════╝
@@ -115,21 +93,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-# ╔════════════════════════════════════════════════════════════════════════════════╗
-# ║                          FUNGSI FORMAT HARGA & VARIABEL                        ║
-# ╚════════════════════════════════════════════════════════════════════════════════╝
-def format_price(price, pair):
-    pair = pair.lower()
-    if any(currency in pair for currency in ["usdt", "usdc", "usd"]):
-        return f"{price:,.8f}"
-    elif "idr" in pair:
-        if price < 1:
-            return f"{price:,.6f}"
-        else:
-            return f"{price:,.0f}"
-    else:
-        return f"{price:,.2f}"
 
 # ╔════════════════════════════════════════════════════════════════════════════════╗
 # ║                         SIDEBAR - PAIR & PENGATURAN LAIN                       ║
@@ -173,6 +136,22 @@ if st.button("🔄 Reset Sinyal ke Default"):
             key="screenshot_interval_label_select"
         )
         screenshot_interval = screenshot_interval_map[screenshot_interval_label]
+
+# ╔════════════════════════════════════════════════════════════════════════════════╗
+# ║                          FUNGSI FORMAT HARGA & VARIABEL                        ║
+# ╚════════════════════════════════════════════════════════════════════════════════╝
+def format_price(price, pair):
+    pair = pair.lower()
+    if any(currency in pair for currency in ["usdt", "usdc", "usd"]):
+        return f"{price:,.8f}"
+    elif "idr" in pair:
+        if price < 1:
+            return f"{price:,.6f}"
+        else:
+            return f"{price:,.0f}"
+    else:
+        return f"{price:,.2f}"
+
         
 # ╔════════════════════════════════════════════════════════════════════════════════╗
 # ║                          FUNGSI & THREAD SCREENSHOT                            ║
@@ -569,4 +548,25 @@ with st.expander("🔥 Top Movers", expanded=True):
             st.dataframe(top_volume[['vol_idr']].style.format({
                 'vol_idr': '{:,.0f} IDR'
             }))
-# PALING BAWAH PAGE ============================================================================================
+# PALING BAWAH PAGE ====================================================================
+# SCREENSHOT ===========================================================================
+def send_ui_screenshot(filepath="startup_ui.png"):
+    if platform.system() in ["Windows", "Darwin"]:
+        try:
+            ss = ImageGrab.grab()
+            ss.save(filepath)
+            send_telegram_photo(filepath)
+            logger.info("✅ Screenshot UI dikirim ke Telegram.")
+        except Exception as e:
+            logger.warning(f"❌ Gagal ambil/kirim screenshot: {e}")
+    else:
+        logger.info("📸 Screenshot dinonaktifkan (platform tidak mendukung).")
+
+def send_periodic_screenshot():
+    global last_screenshot_time
+    while True:
+        now = datetime.now()
+        if screenshot_interval > 0 and ((last_screenshot_time is None) or ((now - last_screenshot_time).total_seconds() >= screenshot_interval)):
+            send_ui_screenshot("screenshot_ui.png")
+            last_screenshot_time = now
+        time.sleep(60)
