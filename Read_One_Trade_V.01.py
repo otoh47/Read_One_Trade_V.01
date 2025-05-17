@@ -440,7 +440,7 @@ with st.expander("📈 Sinyal MACD & Volume Spike", expanded=True):
                 st.success("Sinyal terkirim ke Telegram! 🚀")
                 sent_signals[pair] = {'signal': current_signal, 'time': datetime.now()}
                 with open("signal_logs.txt", "a") as f:
-                    f.write(f\"{datetime.now()} - {pair} - {msg}\\n\")
+                    f.write(f"{datetime.now()} - {pair} - {msg}\n")
     else:
         st.write("Tidak ada sinyal terdeteksi.")
 
