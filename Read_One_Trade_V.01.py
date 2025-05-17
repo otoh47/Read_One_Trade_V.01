@@ -439,8 +439,8 @@ with st.expander("📈 Sinyal MACD & Volume Spike", expanded=True):
 
         # Pastikan kunci SENT_SIGNALS aman digunakan
         if "SENT_SIGNALS" not in st.session_state:
-        st.session_state["SENT_SIGNALS"] = []
-        sent_signals = st.session_state["SENT_SIGNALS"]
+            st.session_state["SENT_SIGNALS"] = []
+            sent_signals = st.session_state["SENT_SIGNALS"]
 
         if current_signal and sent_signals.get(pair, {}).get('signal') != current_signal:
             msg = f"📢 Sinyal Detected pada {pair.upper()} ({signal_interval})\n"
