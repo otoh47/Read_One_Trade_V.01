@@ -438,6 +438,8 @@ with st.expander("📈 Sinyal MACD & Volume Spike", expanded=True):
         current_signal = last_signal['macd_signal_label'] or last_signal['volume_spike_label']
 
         # Pastikan kunci SENT_SIGNALS aman digunakan
+        if "SENT_SIGNALS" not in st.session_state:
+        st.session_state["SENT_SIGNALS"] = []
         sent_signals = st.session_state["SENT_SIGNALS"]
 
         if current_signal and sent_signals.get(pair, {}).get('signal') != current_signal:
