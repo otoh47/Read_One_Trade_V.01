@@ -28,6 +28,18 @@ from utils.helpers import get_top_movers
 # Streamlit config ================================================================================
 st.set_page_config(layout="wide")
 
+# Inisialisasi session_state
+default_keys = {
+    "SENT_SIGNALS": [],
+    "TRADE_HISTORY": [],
+    "USER_LOGGED_IN": False,
+    "CURRENT_PAGE": "Home"
+}
+
+for key, default_value in default_keys.items():
+    if key not in st.session_state:
+        st.session_state[key] = default_value
+
 # Logging setup ===================================================================================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
