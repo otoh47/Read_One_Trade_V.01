@@ -25,14 +25,24 @@ from utils.helpers import get_top_movers
 # ╔════════════════════════════════════════════════════════════════════════════════╗
 # ║                            KONFIGURASI & GET CONFIG                            ║
 # ╚════════════════════════════════════════════════════════════════════════════════╝
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # Streamlit config ================================================================================
 st.set_page_config(layout="wide")
 
-if "SENT_SIGNALS" not in st.session_state:
-    st.session_state["SENT_SIGNALS"] = {}
+# Logging setup ===================================================================================
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Inisialisasi aman untuk session state============================================================
+try:
+    if "SENT_SIGNALS" not in st.session_state:
+        st.session_state["SENT_SIGNALS"] = {}
+
+    if "startup_notified" not in st.session_state:
+        st.session_state["startup_notified"] = False
+except Exception as e:
+    st.error("Terjadi kesalahan saat inisialisasi session state.")
+    logger.error(f"Gagal inisialisasi session state: {e}")
+    st.stop()
 
 # KONFIGURASI DARI SECRETS.TOML ===================================================================
 def get_current_config():
