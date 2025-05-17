@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 # Streamlit config ================================================================================
 st.set_page_config(layout="wide")
 
+if "SENT_SIGNALS" not in st.session_state:
+    st.session_state["SENT_SIGNALS"] = {}
+
 # KONFIGURASI DARI SECRETS.TOML ===================================================================
 def get_current_config():
     return {
@@ -424,17 +427,20 @@ with st.expander("📈 Sinyal MACD & Volume Spike", expanded=True):
         last_signal = signals.iloc[-1]
         current_signal = last_signal['macd_signal_label'] or last_signal['volume_spike_label']
 
-        if current_signal and SENT_SIGNALS.get(pair) != current_signal:
+        # Pastikan kunci SENT_SIGNALS aman digunakan
+        sent_signals = st.session_state["SENT_SIGNALS"]
+
+        if current_signal and sent_signals.get(pair, {}).get('signal') != current_signal:
             msg = f"📢 Sinyal Detected pada {pair.upper()} ({signal_interval})\n"
             msg += f"- MACD: {last_signal['macd_signal_label']}\n" if last_signal['macd_signal_label'] else ""
             msg += f"- Volume Spike: {last_signal['volume_spike_label']}\n" if last_signal['volume_spike_label'] else ""
             msg += f"- Harga: {format_price(summary['last'], pair)}"
 
             if send_telegram_message(msg):
-                st.success("Sinyal terkirim ke Telegram!")
-                SENT_SIGNALS[pair] = {'signal': current_signal, 'time': datetime.now()}
+                st.success("Sinyal terkirim ke Telegram! 🚀")
+                sent_signals[pair] = {'signal': current_signal, 'time': datetime.now()}
                 with open("signal_logs.txt", "a") as f:
-                    f.write(f"{datetime.now()} - {pair} - {msg}\n")
+                    f.write(f\"{datetime.now()} - {pair} - {msg}\\n\")
     else:
         st.write("Tidak ada sinyal terdeteksi.")
 
